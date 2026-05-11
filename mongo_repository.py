@@ -3,13 +3,11 @@ from dotenv import load_dotenv
 from datetime import datetime
 from pymongo.server_api import ServerApi
 from pymongo import MongoClient, errors
+import logging
 import time
 
 # ENVIRONMENT VARIABLES
 load_dotenv()
-DB_CONNECTION_URI = os.getenv('DB_CONNECTION_URI')
-
-DB_NAME = "orders-invoices"
 
 def connect_to_mongo():
   while True:
@@ -27,18 +25,19 @@ def connect_to_mongo():
     print("Retrying in 5 seconds...\n")
     time.sleep(5)
     
-def export_to_mongo(collection_name, orders):
+def export_to_mongo(orders):
   client = connect_to_mongo()
+  if DB_NAME is None:
+    raise ValueError('Database name is not present')
+  
   db = client[DB_NAME]
 
-  if collection_name not in db.list_collection_names():
-    print(f"Collection '{collection_name}' does not exist. Creating it now...")
-    db.create_collection(collection_name)
-    db[collection_name].create_index([("order_id", 1)], unique=True)
-  else:
-    print(f"Collection '{collection_name}' already exists.")
+  if 'orders' not in db.list_collection_names():
+    print(f"Collection 'orders' does not exist. Creating it now...")
+    db.create_collection('orders')
+    db['orders'].create_index([("order_id", 1)], unique=True)
     
-  collection = db[collection_name]
+  collection = db['orders']
 
   for order in orders:
     order_id = order.get("order_id")
@@ -49,5 +48,5 @@ def export_to_mongo(collection_name, orders):
       upsert=True
     )
 
-  print(f"Uploaded orders to mongo")
+  logging.info("Uploaded %s orders to MongoDB", len(orders))
   client.close()
